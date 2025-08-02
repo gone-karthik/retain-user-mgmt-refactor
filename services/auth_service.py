@@ -1,25 +1,37 @@
 import sqlite3
+from typing import Optional
 
+# Should match the name and location of your SQLite DB file
 DB_FILE = "users.db"
 
 def verify_user_login(login_key: str, password: str) -> bool:
     """
-    Returns True if a user with this login_key (email or username)
-    exists and the password matches.
+    Return True if 'login_key' (name, email or username) exists
+    and password matches; otherwise False.
     """
-    with sqlite3.connect(DB_FILE) as conn:
-        cur = conn.cursor()
-        # Parameterized query protects against SQL injection
-        try:
-            cur.execute(
-                "SELECT password FROM users WHERE username = ? OR email = ?",
-                (login_key, login_key)
-            )
-        except sqlite3.OperationalError:
-            # 'username' column may not exist; try only email
-            cur.execute("SELECT password FROM users WHERE email = ?", (login_key,))
-        row = cur.fetchone()
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+
+    # Use placeholders to prevent SQL injection attacks
+    # This is DB-API standard practice :contentReference[oaicite:0]{index=0}
+    try:
+        cur.execute(
+            "SELECT password FROM users "
+            "WHERE name = ? OR email = ? OR username = ?",
+            (login_key, login_key, login_key),
+        )
+    except sqlite3.OperationalError:
+        # If table has no 'username' column
+        # gracefully downgrade to two-column version
+        cur.execute(
+            "SELECT password FROM users WHERE name = ? OR email = ?",
+            (login_key, login_key),
+        )
+
+    row = cur.fetchone()
+    conn.close()
 
     if not row:
         return False
-    return row[0] == password
+    stored_password = row[0] or ""
+    return password == stored_password
