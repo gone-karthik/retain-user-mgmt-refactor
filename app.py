@@ -1,8 +1,8 @@
-from flask import Flask, request, jsonify
 import sqlite3
 import json
+from flask import Flask, request, jsonify, abort
 
-app = Flask(__name__)
+from services.auth_service import verify_user_login
 
 conn = sqlite3.connect('users.db', check_same_thread=False)
 cursor = conn.cursor()
@@ -79,23 +79,20 @@ def search_users():
 
 @app.route("/login", methods=["POST"])
 def login():
+    # Use force=True to parse JSON even if Content-Type isn't strictly application/json
     data = request.get_json(force=True) or {}
+
+    # Accept either "username" or fall back to "email"
     username = data.get("username") or data.get("email")
     password = data.get("password")
+
+    # Required fields check
     if not username or not password:
         abort(400)
+
+    # Delegate the login check to our service function
     ok = verify_user_login(username, password)
+
     if ok:
         return jsonify({"status": "success"}), 200
     return jsonify({"status": "invalid credentials"}), 401
-
-    cursor.execute(f"SELECT * FROM users WHERE email = '{email}' AND password = '{password}'")
-    user = cursor.fetchone()
-    
-    if user:
-        return jsonify({"status": "success", "user_id": user[0]})
-    else:
-        return jsonify({"status": "failed"})
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5009, debug=True)
