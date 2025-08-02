@@ -1,5 +1,3 @@
-# app.py — complete Flask app for your assignment
-
 import sqlite3
 import json
 from flask import Flask, request, jsonify, abort
@@ -11,7 +9,7 @@ from services.user_service import (
 )
 from services.auth_service import verify_user_login
 
-app = Flask(__name__)
+app = Flask(__name__)  # Must be defined before @app.route!
 
 @app.route("/")
 def health():
@@ -24,24 +22,23 @@ def list_users():
 @app.route("/user/<int:user_id>", methods=["GET"])
 def get_user(user_id):
     user = fetch_user_by_id(user_id)
-    if not user:
+    if user is None:
         abort(404)
     return jsonify(user), 200
 
 @app.route("/search")
 def search():
-    name = request.args.get("name", "").strip()
-    results = search_users_by_name(name)
-    return jsonify(results), 200
+    name = request.args.get("name", "")
+    return jsonify(search_users_by_name(name)), 200
 
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json(force=True) or {}
-    username = data.get("username") or data.get("email")
+    login_key = data.get("username") or data.get("email")
     password = data.get("password")
-    if not username or not password:
+    if not login_key or not password:
         abort(400)
-    if verify_user_login(username, password):
+    if verify_user_login(login_key, password):
         return jsonify({"status": "success"}), 200
     return jsonify({"status": "invalid credentials"}), 401
 
